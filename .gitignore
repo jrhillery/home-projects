@@ -1,0 +1,3 @@
+/heat-cool/parmFiles/accesstoken.json
+/heat-cool/parmFiles/*.persist
+/heat-cool/thermium.log*
