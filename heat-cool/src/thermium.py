@@ -6,6 +6,7 @@ import sys
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from contextlib import AsyncExitStack
+from platform import node
 
 from aiohttp import ClientSession
 from nexia.const import BRAND_ASAIR
@@ -79,14 +80,13 @@ class NexiaProc(ABC):
         self.persistData = persistentData
         with open(Configure.findParmPath().joinpath("accesstoken.json"),
                   "r", encoding="utf-8") as accessFile:
+            # read username and password
             accessToken: dict[str, str] = json.load(accessFile)
 
         stateFile = Configure.findParmPath().joinpath(f"{BRAND_ASAIR}_config.persist")
 
-        self.nexiaHome = NexiaHome(session, username=accessToken["username"],
-                                   password=accessToken["password"],
-                                   device_name="Python Script", brand=BRAND_ASAIR,
-                                   state_file=stateFile)
+        self.nexiaHome = NexiaHome(session, **accessToken, device_name=node(),
+                                   brand=BRAND_ASAIR, state_file=stateFile)
         del accessToken
     # end __init__(ClientSession)
 
