@@ -2,6 +2,7 @@
 import __main__ as main
 import logging.config
 from io import TextIOWrapper
+from logging import Formatter
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -65,6 +66,27 @@ class Configure(object):
             }
         })
     # end logToFile()
+
+    @staticmethod
+    def addRotatingFileHandler(logger: logging.Logger) -> None:
+        filePath = Path(logger.name + ".log")
+
+        if filePath.exists():
+            # add a blank line each subsequent execution
+            with open(filePath, "a", encoding="utf-8", newline="\n") as logFile:
+                logFile.write("\n")
+
+        rotatingFileHandler = LfRotatingFileHandler(
+            filePath, maxBytes=120000, backupCount=1, encoding="utf-8")
+        rotatingFileHandler.setLevel(logging.DEBUG)
+        rotatingFileHandler.setFormatter(Formatter(
+            "%(levelname)s %(asctime)s.%(msecs)03d %(module)s: %(message)s",
+            "%a %b %d %H:%M:%S"))
+
+        logger.addHandler(rotatingFileHandler)
+        logger.propagate = False
+        logger.disabled = False
+    # end addRotatingFileHandler(Logger)
 
     @staticmethod
     def findParmPath() -> Path:

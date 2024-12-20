@@ -9,9 +9,9 @@ from contextlib import AsyncExitStack
 from platform import node
 from urllib.parse import urlsplit, urlunsplit
 
+import nexia.home
 from aiohttp import ClientSession
 from nexia.const import BRAND_ASAIR
-from nexia.home import NexiaHome
 from nexia.thermostat import NexiaThermostat
 from wakepy import keep
 
@@ -86,8 +86,8 @@ class NexiaProc(ABC):
 
         stateFile = Configure.findParmPath().joinpath(f"{BRAND_ASAIR}_config.persist")
 
-        self.nexiaHome = NexiaHome(session, **accessToken, device_name=node(),
-                                   brand=BRAND_ASAIR, state_file=stateFile)
+        self.nexiaHome = nexia.home.NexiaHome(session, **accessToken, device_name=node(),
+                                              brand=BRAND_ASAIR, state_file=stateFile)
         self.rootUrlParts = urlsplit(self.nexiaHome.root_url)
         del accessToken
     # end __init__(PersistentData, ClientSession)
@@ -249,6 +249,7 @@ class StatusPresenter(NexiaProc):
 
 if __name__ == "__main__":
     Configure.logToFile()
+    Configure.addRotatingFileHandler(nexia.home._LOGGER)
     try:
         thermium = Thermium()
         asyncio.run(thermium.main())
