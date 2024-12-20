@@ -1,13 +1,13 @@
 
 import __main__ as main
+import logging
 import logging.config
+import logging.handlers
 from io import TextIOWrapper
-from logging import Formatter
-from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 
-class LfRotatingFileHandler(RotatingFileHandler):
+class LfRotatingFileHandler(logging.handlers.RotatingFileHandler):
 
     def _open(self) -> TextIOWrapper:
         logStream = super()._open()
@@ -79,7 +79,7 @@ class Configure(object):
         rotatingFileHandler = LfRotatingFileHandler(
             filePath, maxBytes=120000, backupCount=1, encoding="utf-8")
         rotatingFileHandler.setLevel(logging.DEBUG)
-        rotatingFileHandler.setFormatter(Formatter(
+        rotatingFileHandler.setFormatter(logging.Formatter(
             "%(levelname)s %(asctime)s.%(msecs)03d %(module)s: %(message)s",
             "%a %b %d %H:%M:%S"))
 
