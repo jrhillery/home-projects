@@ -10,7 +10,7 @@ from platform import node
 from urllib.parse import urlsplit, urlunsplit
 
 import nexia.home
-from aiohttp import ClientSession
+from aiohttp import ClientConnectorError, ClientSession
 from nexia.const import BRAND_ASAIR
 from nexia.thermostat import NexiaThermostat
 from wakepy import keep
@@ -117,7 +117,17 @@ class NexiaProc(ABC):
     # end sensorData(NexiaThermostat)
 
     async def login(self) -> bool:
-        await self.nexiaHome.login()
+        retries = 6
+
+        while retries:
+            try:
+                await self.nexiaHome.login()
+                break
+            except ClientConnectorError as e:
+                logging.error(f"Login retry needed due to {e.__class__.__name__}: {e}")
+                await asyncio.sleep(15)
+                retries -= 1
+        # end while
         await self.nexiaHome.update()
 
         for therm in self.nexiaHome.thermostats:
