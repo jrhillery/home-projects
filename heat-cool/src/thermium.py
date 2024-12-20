@@ -135,13 +135,14 @@ class NexiaProc(ABC):
 
     async def updateThermostatSensorData(self, therm: NexiaThermostat) -> None:
         reqCurState = self.get_sensors_json(therm)["actions"]["request_current_state"]["href"]
-        response = await self.nexiaHome.post_url(self.resolveUrl(reqCurState), {})
-        pollingUrl = self.resolveUrl((await response.json())["result"]["polling_path"])
+
+        async with await self.nexiaHome.post_url(self.resolveUrl(reqCurState), {}) as response:
+            pollingUrl = self.resolveUrl((await response.json())["result"]["polling_path"])
         status: str | None = None
 
         while status is None:
-            response = await self.nexiaHome._get_url(pollingUrl)
-            data = (await response.read()).strip()
+            async with await self.nexiaHome._get_url(pollingUrl) as response:
+                data = (await response.read()).strip()
 
             if data == b"null":
                 await asyncio.sleep(0.8)
@@ -164,8 +165,9 @@ class NexiaProc(ABC):
         :return: None
         """
         selfRef = therm._get_thermostat_key("_links")["self"]["href"]
-        response = await self.nexiaHome._get_url(self.resolveUrl(selfRef))
-        therm.update_thermostat_json((await response.json())["result"])
+
+        async with await self.nexiaHome._get_url(self.resolveUrl(selfRef)) as response:
+            therm.update_thermostat_json((await response.json())["result"])
     # end refreshThermostat(NexiaThermostat)
 
 # end class NexiaProc
