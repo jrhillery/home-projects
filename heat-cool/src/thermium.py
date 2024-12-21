@@ -143,26 +143,31 @@ class NexiaProc(ABC):
             scheme=self.rootUrlParts.scheme, netloc=self.rootUrlParts.netloc)))
     # end resolveUrl(str)
 
-    async def updateThermostatSensorData(self, therm: NexiaThermostat) -> None:
+    async def loadCurrentSensorState(self, therm: NexiaThermostat) -> None:
         reqCurState = self.get_sensors_json(therm)["actions"]["request_current_state"]["href"]
 
         async with await self.nexiaHome.post_url(self.resolveUrl(reqCurState), {}) as response:
             pollingUrl = self.resolveUrl((await response.json())["result"]["polling_path"])
-        status: str | None = None
+        retries = 50
 
-        while status is None:
+        while retries:
+            await asyncio.sleep(0.8)
             async with await self.nexiaHome._get_url(pollingUrl) as response:
                 data = (await response.read()).strip()
 
-            if data == b"null":
-                await asyncio.sleep(0.8)
-            else:
+            if data != b"null":
                 status = json.loads(data)["status"]
+
+                if status != "success":
+                    logging.error(f"Unexpected status [{status}]"
+                                  f" loading current sensor state")
+
+                return
+            retries -= 1
         # end while waiting for status
 
-        if status != "success":
-            logging.debug(f"Unexpected status [{status}] from request current sensor state")
-    # end updateThermostatSensorData(NexiaThermostat)
+        logging.error("Gave up waiting for current sensor state")
+    # end loadCurrentSensorState(NexiaThermostat)
 
     @staticmethod
     def auxOnOff(therm: NexiaThermostat) -> str:
@@ -170,15 +175,15 @@ class NexiaProc(ABC):
         return "on" if therm.is_emergency_heat_active() else "off"
     # end auxOnOff(NexiaThermostat)
 
-    async def refreshThermostat(self, therm: NexiaThermostat) -> None:
-        """Refreshes thermostat data
+    async def refreshThermostatData(self, therm: NexiaThermostat) -> None:
+        """Refresh thermostat data
         :return: None
         """
         selfRef = therm._get_thermostat_key("_links")["self"]["href"]
 
         async with await self.nexiaHome._get_url(self.resolveUrl(selfRef)) as response:
             therm.update_thermostat_json((await response.json())["result"])
-    # end refreshThermostat(NexiaThermostat)
+    # end refreshThermostatData(NexiaThermostat)
 
 # end class NexiaProc
 
@@ -194,10 +199,10 @@ class AuxHeatEnabler(NexiaProc):
         for therm in self.nexiaHome.thermostats:
             auxHeatOn: bool = therm.is_emergency_heat_active()
             self.persistData.setVal(self.PRIOR_AUX_STATE, therm.get_device_id(), auxHeatOn)
-            await self.updateThermostatSensorData(therm)
+            await self.loadCurrentSensorState(therm)
 
             if auxHeatOn:
-                await self.refreshThermostat(therm)
+                await self.refreshThermostatData(therm)
                 logging.info(f"{therm.get_name()} auxiliary heat was already on"
                              f"{await self.sensorData(therm)}")
             else:
@@ -224,10 +229,10 @@ class AuxHeatRestorer(NexiaProc):
                                                                 therm.get_device_id())
             if priorAuxHeat is None:
                 priorAuxHeat = False
-            await self.updateThermostatSensorData(therm)
+            await self.loadCurrentSensorState(therm)
 
             if auxHeatOn == priorAuxHeat:
-                await self.refreshThermostat(therm)
+                await self.refreshThermostatData(therm)
                 logging.info(f"{therm.get_name()} auxiliary heat was already"
                              f" {self.auxOnOff(therm)}{await self.sensorData(therm)}")
             else:
@@ -250,8 +255,8 @@ class StatusPresenter(NexiaProc):
             return
 
         for therm in self.nexiaHome.thermostats:
-            await self.updateThermostatSensorData(therm)
-            await self.refreshThermostat(therm)
+            await self.loadCurrentSensorState(therm)
+            await self.refreshThermostatData(therm)
             logging.info(f"{therm.get_name()} auxiliary heat is {self.auxOnOff(therm)}"
                          f"{await self.sensorData(therm)}")
     # end process()
