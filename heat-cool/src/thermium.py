@@ -30,7 +30,7 @@ class Thermium(object):
                             epilog="Just displays status when no option is specified")
         group = ap.add_mutually_exclusive_group()
         group.add_argument("-e", "--enable", action="store_true",
-                           help="enable auxiliary heat")
+                           help="enable auxiliary heat after persisting state")
         group.add_argument("-r", "--restore", action="store_true",
                            help="restore auxiliary heat to previous state, disable by default")
 
@@ -88,7 +88,7 @@ class NexiaProc(ABC):
 
         self.nexiaHome = nexia.home.NexiaHome(session, **accessToken, device_name=node(),
                                               brand=BRAND_ASAIR, state_file=stateFile)
-        self.rootUrlParts = urlsplit(self.nexiaHome.root_url)
+        self.rootUrlSplits = urlsplit(self.nexiaHome.root_url)
         del accessToken
     # end __init__(PersistentData, ClientSession)
 
@@ -100,6 +100,10 @@ class NexiaProc(ABC):
 
     @staticmethod
     def get_sensors_json(therm: NexiaThermostat) -> dict:
+        """Get the sensors' detail dict
+        :param therm: thermostat in question
+        :return: dictionary of sensor details
+        """
         roomIqSensors = therm._get_thermostat_features_key("room_iq_sensors")
 
         return roomIqSensors
@@ -107,6 +111,10 @@ class NexiaProc(ABC):
 
     @staticmethod
     async def sensorData(therm: NexiaThermostat) -> str:
+        """Create a text representation of select sensor details
+        :param therm: thermostat in question
+        :return: sensor detail text
+        """
         sensorDetails: list[str] = [
             ("," if sensor["type"] == "thermostat" else f"{sensor["name"]}:")
             + f" {sensor["temperature"]}\u00B0"
@@ -117,6 +125,9 @@ class NexiaProc(ABC):
     # end sensorData(NexiaThermostat)
 
     async def login(self) -> bool:
+        """Log in to the Nexia site
+        :return: True when successfully logged-in with thermostats known
+        """
         retries = 6
 
         while retries:
@@ -137,16 +148,25 @@ class NexiaProc(ABC):
     # end login()
 
     def resolveUrl(self, rawPath: str) -> str:
+        """Determine the url of the specified raw path on the root host
+        :param rawPath:
+        :return: url resolved on the root host
+        """
         rawPathParts = urlsplit(rawPath)
 
         return str(urlunsplit(rawPathParts._replace(
-            scheme=self.rootUrlParts.scheme, netloc=self.rootUrlParts.netloc)))
+            scheme=self.rootUrlSplits.scheme, netloc=self.rootUrlSplits.netloc)))
     # end resolveUrl(str)
 
     async def loadCurrentSensorState(self, therm: NexiaThermostat) -> None:
-        reqCurState = self.get_sensors_json(therm)["actions"]["request_current_state"]["href"]
+        """Load into the specified thermostat the current state of its sensors
+        :param therm: thermostat to load
+        :return: None
+        """
+        actions = self.get_sensors_json(therm)["actions"]
+        requestCurState = self.resolveUrl(actions["request_current_state"]["href"])
 
-        async with await self.nexiaHome.post_url(self.resolveUrl(reqCurState), {}) as response:
+        async with await self.nexiaHome.post_url(requestCurState, {}) as response:
             pollingUrl = self.resolveUrl((await response.json())["result"]["polling_path"])
         retries = 50
 
@@ -171,17 +191,22 @@ class NexiaProc(ABC):
 
     @staticmethod
     def auxOnOff(therm: NexiaThermostat) -> str:
+        """Return state of auxiliary heat
+        :param therm: thermostat in question
+        :return: on/off text for the auxiliary heat state of the specified thermostat
+        """
 
         return "on" if therm.is_emergency_heat_active() else "off"
     # end auxOnOff(NexiaThermostat)
 
     async def refreshThermostatData(self, therm: NexiaThermostat) -> None:
         """Refresh thermostat data
+        :param therm: thermostat to refresh
         :return: None
         """
-        selfRef = therm._get_thermostat_key("_links")["self"]["href"]
+        selfRef = self.resolveUrl(therm._get_thermostat_key("_links")["self"]["href"])
 
-        async with await self.nexiaHome._get_url(self.resolveUrl(selfRef)) as response:
+        async with await self.nexiaHome._get_url(selfRef) as response:
             therm.update_thermostat_json((await response.json())["result"])
     # end refreshThermostatData(NexiaThermostat)
 
@@ -189,7 +214,7 @@ class NexiaProc(ABC):
 
 
 class AuxHeatEnabler(NexiaProc):
-    """Processor to enable auxiliary heat"""
+    """Processor to enable auxiliary heat after persisting state"""
 
     async def process(self) -> None:
         if not await self.login():
