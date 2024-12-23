@@ -5,6 +5,7 @@ import logging
 import sys
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
+from collections import namedtuple
 from contextlib import AsyncExitStack
 from platform import node
 from urllib.parse import urlsplit, urlunsplit
@@ -69,6 +70,12 @@ class Thermium(object):
 # end class Thermium
 
 
+Sensor = namedtuple("Sensor",
+                    "id name type serial_number weight "
+                    "temperature temperature_valid "
+                    "humidity humidity_valid has_online has_battery")
+
+
 class NexiaProc(ABC):
     """Abstract base class for Nexia users"""
     PRIOR_AUX_STATE = "priorAuxState"
@@ -99,15 +106,28 @@ class NexiaProc(ABC):
     # end process()
 
     @staticmethod
-    def get_sensors_json(therm: NexiaThermostat) -> dict:
-        """Get the sensors' detail dict
+    def get_sensors(therm: NexiaThermostat) -> list[Sensor]:
+        """Get from the specified thermostat its sensor data objects
         :param therm: thermostat in question
-        :return: dictionary of sensor details
+        :return: list of sensor data objects
         """
-        roomIqSensors = therm._get_thermostat_features_key("room_iq_sensors")
+        sensors_json = therm._get_thermostat_features_key("room_iq_sensors")["sensors"]
+        sensors: list[Sensor] = []
 
-        return roomIqSensors
-    # end get_sensors_json(NexiaThermostat)
+        for sensor_json in sensors_json:
+            sensors.append(Sensor(*[sensor_json[fld] for fld in Sensor._fields]))
+
+        return sensors
+    # end get_sensors(NexiaThermostat)
+
+    @staticmethod
+    def get_sensor_actions(therm: NexiaThermostat) -> dict[str, dict[str, str]]:
+        """Get the actions offered by our sensors
+        :param therm: thermostat in question
+        :return: dictionary of sensor actions
+        """
+        return therm._get_thermostat_features_key("room_iq_sensors")["actions"]
+    # end get_sensor_actions(NexiaThermostat)
 
     @staticmethod
     async def sensorData(therm: NexiaThermostat) -> str:
@@ -116,10 +136,10 @@ class NexiaProc(ABC):
         :return: sensor detail text
         """
         sensorDetails: list[str] = [
-            ("," if sensor["type"] == "thermostat" else f"{sensor["name"]}:")
-            + f" {sensor["temperature"]}\u00B0"
-              f" humidity {sensor["humidity"]}%"
-            for sensor in NexiaProc.get_sensors_json(therm)["sensors"]]
+            ("," if sensor.type == "thermostat" else f"{sensor.name}:")
+            + f" {sensor.temperature}\u00B0"
+              f" humidity {sensor.humidity}%"
+            for sensor in NexiaProc.get_sensors(therm)]
 
         return "; ".join(sensorDetails)
     # end sensorData(NexiaThermostat)
@@ -163,7 +183,7 @@ class NexiaProc(ABC):
         :param therm: thermostat to load
         :return: None
         """
-        actions = self.get_sensors_json(therm)["actions"]
+        actions = self.get_sensor_actions(therm)
         requestCurState = self.resolveUrl(actions["request_current_state"]["href"])
 
         async with await self.nexiaHome.post_url(requestCurState, {}) as response:
