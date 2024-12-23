@@ -5,9 +5,9 @@ import logging
 import sys
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
-from collections import namedtuple
 from contextlib import AsyncExitStack
 from platform import node
+from typing import NamedTuple
 from urllib.parse import urlsplit, urlunsplit
 
 import nexia.home
@@ -70,10 +70,20 @@ class Thermium(object):
 # end class Thermium
 
 
-Sensor = namedtuple("Sensor",
-                    "id name type serial_number weight "
-                    "temperature temperature_valid "
-                    "humidity humidity_valid has_online has_battery")
+class Sensor(NamedTuple):
+    """Data object representing a sensor"""
+    id: int
+    name: str
+    type: str
+    serial_number: str
+    weight: float
+    temperature:int
+    temperature_valid: bool
+    humidity: int
+    humidity_valid: bool
+    has_online: bool
+    has_battery: bool
+# end class Sensor
 
 
 class NexiaProc(ABC):
