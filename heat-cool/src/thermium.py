@@ -169,7 +169,16 @@ class NexiaProc(ABC):
                 await asyncio.sleep(15)
                 retries -= 1
         # end while
-        await self.nexiaHome.update()
+
+        while retries:
+            try:
+                await self.nexiaHome.update()
+                break
+            except ClientError as e:
+                logging.error(f"Update retry needed due to {e.__class__.__name__}: {e}")
+                await asyncio.sleep(15)
+                retries -= 1
+        # end while
 
         for therm in self.nexiaHome.thermostats:
             logging.debug(f"{therm.get_name()} at login{await self.sensorData(therm)}")
