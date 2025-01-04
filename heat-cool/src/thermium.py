@@ -345,6 +345,7 @@ class StatusPresenter(NexiaProc):
 if __name__ == "__main__":
     Configure.logToFile()
     Configure.addRotatingFileHandler(nexia.home._LOGGER)
+    Configure.addRotatingFileHandler(nexia.thermostat._LOGGER)
     try:
         thermium = Thermium()
         asyncio.run(thermium.main())
