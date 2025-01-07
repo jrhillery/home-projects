@@ -1,5 +1,4 @@
 /heat-cool/nexia.home.log*
-/heat-cool/nexia.thermostat.log*
 /heat-cool/parmFiles/accesstoken.json
 /heat-cool/parmFiles/*.persist
 /heat-cool/thermium.log*

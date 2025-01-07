@@ -68,8 +68,8 @@ class Configure(object):
     # end logToFile()
 
     @staticmethod
-    def addRotatingFileHandler(logger: logging.Logger) -> None:
-        filePath = Path(logger.name + ".log")
+    def addRotatingFileHandler(*loggers: logging.Logger) -> None:
+        filePath = Path(loggers[0].name + ".log")
 
         if filePath.exists():
             # add a blank line each subsequent execution
@@ -83,9 +83,10 @@ class Configure(object):
             "%(levelname)s %(asctime)s.%(msecs)03d %(module)s: %(message)s",
             "%a %b %d %H:%M:%S"))
 
-        logger.addHandler(rotatingFileHandler)
-        logger.propagate = False
-        logger.disabled = False
+        for logger in loggers:
+            logger.addHandler(rotatingFileHandler)
+            logger.propagate = False
+            logger.disabled = False
     # end addRotatingFileHandler(Logger)
 
     @staticmethod
