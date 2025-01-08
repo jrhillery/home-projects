@@ -12,6 +12,7 @@ import nexia.home
 from aiohttp import ClientConnectorError, ClientError, ClientSession
 from nexia.const import BRAND_ASAIR
 from nexia.thermostat import NexiaThermostat
+from nexia.zone import NexiaThermostatZone
 from wakepy import keep
 
 from util import Configure, PersistentData
@@ -106,7 +107,7 @@ class NexiaProc(ABC):
             ("," if sensor.type == "thermostat" else f"{sensor.name}:")
             + f" {sensor.temperature}\u00B0"
               f" humidity {sensor.humidity}%"
-            for sensor in therm.get_sensors()]
+            for zone in therm.zones for sensor in zone.get_sensors()]
 
         return "; ".join(sensorDetails)
     # end sensorData(NexiaThermostat)
@@ -144,19 +145,22 @@ class NexiaProc(ABC):
     # end login()
 
     @staticmethod
-    async def loadSensorStateRobustly(therm: NexiaThermostat) -> None:
+    async def loadSensorStateRobustly(zone: NexiaThermostatZone) -> None:
+        """Perform retries until the zone loads its current sensor state
+        :param zone: zone to load
+        """
         retries = 6
 
         while retries:
             try:
-                await therm.load_current_sensor_state()
+                await zone.load_current_sensor_state()
                 break
             except ClientError as e:
                 logging.error(f"Load state retry needed due to {e.__class__.__name__}: {e}")
                 await asyncio.sleep(15)
                 retries -= 1
         # end while
-    # end loadSensorStateRobustly(NexiaThermostat)
+    # end loadSensorStateRobustly(NexiaThermostatZone)
 
     @staticmethod
     def auxOnOff(therm: NexiaThermostat) -> str:
@@ -182,7 +186,9 @@ class AuxHeatEnabler(NexiaProc):
         for therm in self.nexiaHome.thermostats:
             auxHeatOn: bool = therm.is_emergency_heat_active()
             self.persistData.setVal(self.PRIOR_AUX_STATE, therm.get_device_id(), auxHeatOn)
-            await self.loadSensorStateRobustly(therm)
+
+            for zone in therm.zones:
+                await self.loadSensorStateRobustly(zone)
 
             if auxHeatOn:
                 await therm.refresh_thermostat_data()
@@ -212,7 +218,9 @@ class AuxHeatRestorer(NexiaProc):
                                                                 therm.get_device_id())
             if priorAuxHeat is None:
                 priorAuxHeat = False
-            await self.loadSensorStateRobustly(therm)
+
+            for zone in therm.zones:
+                await self.loadSensorStateRobustly(zone)
 
             if auxHeatOn == priorAuxHeat:
                 await therm.refresh_thermostat_data()
@@ -238,10 +246,13 @@ class StatusPresenter(NexiaProc):
             return
 
         for therm in self.nexiaHome.thermostats:
-            await self.loadSensorStateRobustly(therm)
+            for zone in therm.zones:
+                await self.loadSensorStateRobustly(zone)
+
             await therm.refresh_thermostat_data()
             logging.info(f"{therm.get_name()} auxiliary heat is {self.auxOnOff(therm)}"
                          f"{await self.sensorData(therm)}")
+        # end for each thermostat
     # end process()
 
 # end class StatusPresenter
