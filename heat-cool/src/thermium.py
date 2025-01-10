@@ -162,6 +162,16 @@ class NexiaProc(ABC):
         # end while
     # end loadSensorStateRobustly(NexiaThermostatZone)
 
+    async def loadCurrentSensorStates(self) -> None:
+        """Load the current state of all zones' sensors in parallel
+        """
+        async with asyncio.TaskGroup() as tg:
+            for therm in self.nexiaHome.thermostats:
+                for zone in therm.zones:
+                    tg.create_task(self.loadSensorStateRobustly(zone))
+        # end async with (tasks are awaited)
+    # end loadCurrentSensorStates()
+
     @staticmethod
     def auxOnOff(therm: NexiaThermostat) -> str:
         """Return state of auxiliary heat
@@ -183,12 +193,11 @@ class AuxHeatEnabler(NexiaProc):
             logging.error("Unable to contact thermostat")
             return
 
+        await self.loadCurrentSensorStates()
+
         for therm in self.nexiaHome.thermostats:
             auxHeatOn: bool = therm.is_emergency_heat_active()
             self.persistData.setVal(self.PRIOR_AUX_STATE, therm.get_device_id(), auxHeatOn)
-
-            for zone in therm.zones:
-                await self.loadSensorStateRobustly(zone)
 
             if auxHeatOn:
                 await therm.refresh_thermostat_data()
@@ -212,15 +221,14 @@ class AuxHeatRestorer(NexiaProc):
             logging.error("Unable to contact thermostat")
             return
 
+        await self.loadCurrentSensorStates()
+
         for therm in self.nexiaHome.thermostats:
             auxHeatOn: bool = therm.is_emergency_heat_active()
             priorAuxHeat: bool | None = self.persistData.getVal(self.PRIOR_AUX_STATE,
                                                                 therm.get_device_id())
             if priorAuxHeat is None:
                 priorAuxHeat = False
-
-            for zone in therm.zones:
-                await self.loadSensorStateRobustly(zone)
 
             if auxHeatOn == priorAuxHeat:
                 await therm.refresh_thermostat_data()
@@ -245,10 +253,9 @@ class StatusPresenter(NexiaProc):
             logging.error("Unable to contact thermostat")
             return
 
-        for therm in self.nexiaHome.thermostats:
-            for zone in therm.zones:
-                await self.loadSensorStateRobustly(zone)
+        await self.loadCurrentSensorStates()
 
+        for therm in self.nexiaHome.thermostats:
             await therm.refresh_thermostat_data()
             logging.info(f"{therm.get_name()} auxiliary heat is {self.auxOnOff(therm)}"
                          f"{await self.sensorData(therm)}")
