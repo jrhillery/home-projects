@@ -98,13 +98,14 @@ class NexiaProc(ABC):
     # end process()
 
     @staticmethod
-    async def sensorData(therm: NexiaThermostat) -> str:
+    def sensorData(therm: NexiaThermostat) -> str:
         """Create a text representation of select sensor details
         :param therm: thermostat in question
         :return: sensor detail text
         """
         sensorDetails: list[str] = [
-            ("," if sensor.type == "thermostat" else f"{sensor.name}:")
+            (f"{therm.get_name()} {{}}," if sensor.type == "thermostat"
+             else f"{sensor.name}:")
             + f" {sensor.temperature}\u00B0"
               f" humidity {sensor.humidity}%"
             for zone in therm.zones for sensor in zone.get_sensors()]
@@ -139,7 +140,7 @@ class NexiaProc(ABC):
         # end while
 
         for therm in self.nexiaHome.thermostats:
-            logging.debug(f"{therm.get_name()} at login{await self.sensorData(therm)}")
+            logging.debug(self.sensorData(therm).format("at login"))
 
         return self.nexiaHome.thermostats is not None
     # end login()
@@ -163,8 +164,7 @@ class NexiaProc(ABC):
     # end loadSensorStateRobustly(NexiaThermostatZone)
 
     async def loadCurrentSensorStates(self) -> None:
-        """Load the current state of all zones' sensors in parallel
-        """
+        """Load the current state of all zones' sensors in parallel"""
         async with asyncio.TaskGroup() as tg:
             for therm in self.nexiaHome.thermostats:
                 for zone in therm.zones:
@@ -201,12 +201,12 @@ class AuxHeatEnabler(NexiaProc):
 
             if auxHeatOn:
                 await therm.refresh_thermostat_data()
-                logging.info(f"{therm.get_name()} auxiliary heat was already on"
-                             f"{await self.sensorData(therm)}")
+                logging.info(self.sensorData(therm).format(
+                    "auxiliary heat was already on"))
             else:
                 await therm.set_emergency_heat(True)
-                logging.info(f"{therm.get_name()} auxiliary heat changed from"
-                             f" off to {self.auxOnOff(therm)}{await self.sensorData(therm)}")
+                logging.info(self.sensorData(therm).format(
+                    f"auxiliary heat changed from off to {self.auxOnOff(therm)}"))
         # end for each thermostat
     # end process()
 
@@ -232,13 +232,13 @@ class AuxHeatRestorer(NexiaProc):
 
             if auxHeatOn == priorAuxHeat:
                 await therm.refresh_thermostat_data()
-                logging.info(f"{therm.get_name()} auxiliary heat was already"
-                             f" {self.auxOnOff(therm)}{await self.sensorData(therm)}")
+                logging.info(self.sensorData(therm).format(
+                    f"auxiliary heat was already {self.auxOnOff(therm)}"))
             else:
                 await therm.set_emergency_heat(priorAuxHeat)
-                logging.info(f"{therm.get_name()} auxiliary heat changed from"
-                             f" {"on" if auxHeatOn else "off"} to {self.auxOnOff(therm)}"
-                             f"{await self.sensorData(therm)}")
+                logging.info(self.sensorData(therm).format(
+                    f"auxiliary heat changed from {"on" if auxHeatOn else "off"}"
+                    f" to {self.auxOnOff(therm)}"))
         # end for each thermostat
     # end process()
 
@@ -257,8 +257,8 @@ class StatusPresenter(NexiaProc):
 
         for therm in self.nexiaHome.thermostats:
             await therm.refresh_thermostat_data()
-            logging.info(f"{therm.get_name()} auxiliary heat is {self.auxOnOff(therm)}"
-                         f"{await self.sensorData(therm)}")
+            logging.info(self.sensorData(therm).format(
+                f"auxiliary heat is {self.auxOnOff(therm)}"))
         # end for each thermostat
     # end process()
 
