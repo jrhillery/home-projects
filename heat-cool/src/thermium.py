@@ -104,7 +104,7 @@ class NexiaProc(ABC):
         :return: sensor detail text
         """
         sensorDetails: list[str] = [
-            (f"{therm.get_name()} {{}}," if sensor.type == "thermostat"
+            (f"{sensor.name} {{}}," if sensor.type == "thermostat"
              else f"{sensor.name}:")
             + f" {sensor.temperature}\u00B0"
               f" humidity {sensor.humidity}%"
