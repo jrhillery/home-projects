@@ -63,16 +63,17 @@ class PersistentData(AbstractContextManager[Self]):
                 self.needsSave = True
     # end setVal(str, str, Any)
 
-    def getVal(self, category: str, instanceId: str) -> Any:
+    def getVal(self, category: str, instanceId: str, default: Any=None) -> Any:
         """Retrieve a value from  this persistent data
         :param category: Classification given to this type of data
         :param instanceId: Identifier for this instance of data
-        :return: Persisted data value, if exists, otherwise None
+        :param default: Value to use if no persisted data found
+        :return: Persisted data value, if exists, otherwise default
         """
         try:
             return self._data[category][instanceId]
         except KeyError:
-            return None
+            return default
     # end getVal(str, str)
 
 # end class PersistentData

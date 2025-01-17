@@ -239,11 +239,9 @@ class AuxHeatRestorer(NexiaProc):
 
         for therm in self.nexiaHome.thermostats:
             auxHeatOn: bool = therm.is_emergency_heat_active()
-            auxHeatToSet: bool | None = self.persistData.getVal(self.PRIOR_AUX_STATE,
-                                                                therm.get_device_id())
-            if auxHeatToSet is None:
-                auxHeatToSet = False
-
+            auxHeatToSet: bool = self.persistData.getVal(self.PRIOR_AUX_STATE,
+                                                         therm.get_device_id(),
+                                                         False)
             await self.changeAuxHeatIfNeeded(auxHeatOn, auxHeatToSet, therm)
         # end for each thermostat
     # end process()
