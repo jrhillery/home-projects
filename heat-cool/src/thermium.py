@@ -182,6 +182,28 @@ class NexiaProc(ABC):
         return "on" if therm.is_emergency_heat_active() else "off"
     # end auxOnOff(NexiaThermostat)
 
+    async def changeAuxHeatIfNeeded(self, auxHeatOn: bool, auxHeatToSet: bool,
+                                    therm: NexiaThermostat) -> None:
+        """Change the auxiliary heat of a specified thermostat if needed. Also ensure data
+        in the thermostat instance is refreshed and log a message with the new sensor data.
+        :param auxHeatOn: existing auxiliary heat state - True for enabled, False for Disabled
+        :param auxHeatToSet: desired auxiliary heat state - True for enabled, False for Disabled
+        :param therm: thermostat in question
+        :return:
+        """
+        auxHeatState = "on" if auxHeatOn else "off"
+
+        if auxHeatOn == auxHeatToSet:
+            await therm.refresh_thermostat_data()
+            logging.info(self.sensorData(therm).format(
+                f"auxiliary heat was already {auxHeatState}"))
+        else:
+            await therm.set_emergency_heat(auxHeatToSet)
+            logging.info(self.sensorData(therm).format(
+                f"auxiliary heat changed from {auxHeatState}"
+                f" to {self.auxOnOff(therm)}"))
+    # end changeAuxHeatIfNeeded(bool, bool, NexiaThermostat)
+
 # end class NexiaProc
 
 
@@ -198,15 +220,7 @@ class AuxHeatEnabler(NexiaProc):
         for therm in self.nexiaHome.thermostats:
             auxHeatOn: bool = therm.is_emergency_heat_active()
             self.persistData.setVal(self.PRIOR_AUX_STATE, therm.get_device_id(), auxHeatOn)
-
-            if auxHeatOn:
-                await therm.refresh_thermostat_data()
-                logging.info(self.sensorData(therm).format(
-                    "auxiliary heat was already on"))
-            else:
-                await therm.set_emergency_heat(True)
-                logging.info(self.sensorData(therm).format(
-                    f"auxiliary heat changed from off to {self.auxOnOff(therm)}"))
+            await self.changeAuxHeatIfNeeded(auxHeatOn, True, therm)
         # end for each thermostat
     # end process()
 
@@ -225,20 +239,12 @@ class AuxHeatRestorer(NexiaProc):
 
         for therm in self.nexiaHome.thermostats:
             auxHeatOn: bool = therm.is_emergency_heat_active()
-            priorAuxHeat: bool | None = self.persistData.getVal(self.PRIOR_AUX_STATE,
+            auxHeatToSet: bool | None = self.persistData.getVal(self.PRIOR_AUX_STATE,
                                                                 therm.get_device_id())
-            if priorAuxHeat is None:
-                priorAuxHeat = False
+            if auxHeatToSet is None:
+                auxHeatToSet = False
 
-            if auxHeatOn == priorAuxHeat:
-                await therm.refresh_thermostat_data()
-                logging.info(self.sensorData(therm).format(
-                    f"auxiliary heat was already {self.auxOnOff(therm)}"))
-            else:
-                await therm.set_emergency_heat(priorAuxHeat)
-                logging.info(self.sensorData(therm).format(
-                    f"auxiliary heat changed from {"on" if auxHeatOn else "off"}"
-                    f" to {self.auxOnOff(therm)}"))
+            await self.changeAuxHeatIfNeeded(auxHeatOn, auxHeatToSet, therm)
         # end for each thermostat
     # end process()
 
