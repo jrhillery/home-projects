@@ -1,4 +1,5 @@
 
+# noinspection PyPackageRequirements
 import __main__ as main
 import json
 from contextlib import AbstractContextManager

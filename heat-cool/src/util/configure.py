@@ -1,4 +1,5 @@
 
+# noinspection PyPackageRequirements
 import __main__ as main
 import logging
 import logging.config
