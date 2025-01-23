@@ -78,7 +78,7 @@ class Configure(object):
                 logFile.write("\n")
 
         rotatingFileHandler = LfRotatingFileHandler(
-            filePath, maxBytes=120000, backupCount=1, encoding="utf-8")
+            filePath, maxBytes=250000, backupCount=1, encoding="utf-8")
         rotatingFileHandler.setLevel(logging.DEBUG)
         rotatingFileHandler.setFormatter(logging.Formatter(
             "%(levelname)s %(asctime)s.%(msecs)03d %(module)s: %(message)s",
