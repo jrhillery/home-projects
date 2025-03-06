@@ -131,12 +131,12 @@ class NexiaProc(ABC):
 
         while retries:
             try:
-                await self.nexiaHome.update()
-                break
+                if await self.nexiaHome.update():
+                    break
             except ClientError as e:
                 logging.error(f"Update retry needed due to {e.__class__.__name__}: {e}")
-                await asyncio.sleep(15)
-                retries -= 1
+            await asyncio.sleep(15)
+            retries -= 1
         # end while
 
         for therm in self.nexiaHome.thermostats:
@@ -154,12 +154,12 @@ class NexiaProc(ABC):
 
         while retries:
             try:
-                await zone.load_current_sensor_state()
-                break
+                if await zone.load_current_sensor_state(2, 20):
+                    break
             except ClientError as e:
                 logging.error(f"Load state retry needed due to {e.__class__.__name__}: {e}")
-                await asyncio.sleep(15)
-                retries -= 1
+            await asyncio.sleep(15)
+            retries -= 1
         # end while
     # end loadSensorStateRobustly(NexiaThermostatZone)
 
