@@ -88,6 +88,7 @@ class NexiaProc(ABC):
 
         self.nexiaHome = nexia.home.NexiaHome(session, **accessToken, device_name=node(),
                                               brand=BRAND_ASAIR, state_file=stateFile)
+        self.nexiaHome.log_response = False
         del accessToken
     # end __init__(PersistentData, ClientSession)
 
