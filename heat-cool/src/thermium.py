@@ -41,6 +41,7 @@ class Thermium(object):
         """Primary entry point"""
         logging.debug(f"Starting {' '.join(sys.argv)}")
 
+        # noinspection PyAbstractClass
         async with AsyncExitStack() as cStack:
             # Prevent the computer from going to sleep until cStack closes
             if not cStack.enter_context(keep.running()).active:
@@ -76,7 +77,7 @@ class NexiaProc(ABC):
     def __init__(self, persistentData: PersistentData, session: ClientSession):
         """Sole constructor
         :param persistentData: Persistent data reference
-        :param session: Asynch client session to use
+        :param session: Async client session to use
         """
         self.persistData = persistentData
         with open(Configure.findParmPath().joinpath("accesstoken.json"),
@@ -220,7 +221,7 @@ class AuxHeatEnabler(NexiaProc):
 
         for therm in self.nexiaHome.thermostats:
             auxHeatOn: bool = therm.is_emergency_heat_active()
-            self.persistData.setVal(self.PRIOR_AUX_STATE, therm.get_device_id(), auxHeatOn)
+            self.persistData.setVal(self.PRIOR_AUX_STATE, therm.get_device_id() or "-", auxHeatOn)
             await self.changeAuxHeatIfNeeded(auxHeatOn, True, therm)
         # end for each thermostat
     # end process()
@@ -241,7 +242,7 @@ class AuxHeatRestorer(NexiaProc):
         for therm in self.nexiaHome.thermostats:
             auxHeatOn: bool = therm.is_emergency_heat_active()
             auxHeatToSet: bool = self.persistData.getVal(self.PRIOR_AUX_STATE,
-                                                         therm.get_device_id(),
+                                                         therm.get_device_id() or "-",
                                                          False)
             await self.changeAuxHeatIfNeeded(auxHeatOn, auxHeatToSet, therm)
         # end for each thermostat

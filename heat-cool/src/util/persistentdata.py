@@ -9,7 +9,7 @@ from typing import Any, Self
 from util import Configure
 
 
-class PersistentData(AbstractContextManager[Self]):
+class PersistentData(AbstractContextManager["PersistentData"]):
 
     def __init__(self):
         """Initialize this instance"""
@@ -42,7 +42,7 @@ class PersistentData(AbstractContextManager[Self]):
         """Locate our persist file
         :return: Path to our persist file
         """
-        mainPath = Path(main.__file__)
+        mainPath = Path(main.__file__ or "Thermium")
 
         return Configure.findParmPath().joinpath(mainPath.stem + ".persist")
     # end persistPath()

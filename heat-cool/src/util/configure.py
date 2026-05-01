@@ -24,7 +24,7 @@ class Configure(object):
     @staticmethod
     def logToFile() -> None:
         """Configure logging to file"""
-        mainPath = Path(main.__file__)
+        mainPath = Path(main.__file__ or "logfile")
         filePath = Path(mainPath.stem + ".log")
 
         if filePath.exists():
